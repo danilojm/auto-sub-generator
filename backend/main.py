@@ -1,20 +1,26 @@
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, HttpUrl
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+from pydantic import BaseModel
 import yt_dlp
 import whisper
 import os
 import tempfile
 import uuid
 from pathlib import Path
-import redis
 import json
 from deep_translator import GoogleTranslator
 import re
 import shutil
 from typing import Optional
+import time
 
 app = FastAPI(title="Subtitle Generator API")
+
+app.mount("/static", StaticFiles(directory="../static"), name="static")
+
 
 # Configurar CORS
 app.add_middleware(
@@ -25,55 +31,57 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Redis para armazenar status dos jobs
-redis_client = redis.Redis(host='localhost', port=6379, db=0)
+# Armazenar status dos jobs em memória (para teste local)
+job_status_storage = {}
 
-# Carregar modelo Whisper (fazer isso uma vez na inicialização)
+# Carregar modelo Whisper
+print("Carregando modelo Whisper...")
 whisper_model = whisper.load_model("base")
+print("Modelo carregado!")
 
 class VideoRequest(BaseModel):
-    video_url: HttpUrl
+    video_url: str
     source_lang: str = "auto"
     target_lang: str = "pt"
 
-class JobStatus(BaseModel):
-    job_id: str
-    status: str  # pending, processing, completed, error
-    progress: int
-    message: str
-    download_url: Optional[str] = None
-
 def update_job_status(job_id: str, status: str, progress: int, message: str, download_url: str = None):
-    """Atualiza status do job no Redis"""
-    job_data = {
+    print("""Atualiza status do job""")
+    job_status_storage[job_id] = {
         "job_id": job_id,
         "status": status,
         "progress": progress,
         "message": message,
-        "download_url": download_url
+        "download_url": download_url,
+        "timestamp": time.time()
     }
-    redis_client.setex(f"job:{job_id}", 3600, json.dumps(job_data))  # Expira em 1 hora
 
-def download_audio(video_url: str, output_path: str) -> str:
-    """Baixa áudio do vídeo usando yt-dlp"""
+def download_audio(video_url: str, output_dir: str) -> str:
+    print("""Baixa áudio do vídeo usando yt-dlp""")
     ydl_opts = {
         'format': 'bestaudio/best',
-        'outtmpl': f'{output_path}/%(title)s.%(ext)s',
+        'outtmpl': f'{output_dir}/audio.%(ext)s',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'wav',
             'preferredquality': '192',
         }],
+        'quiet': True,
     }
     
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(video_url, download=True)
-        title = info.get('title', 'video')
-        # Retorna o caminho do arquivo de áudio
-        return f"{output_path}/{title}.wav"
+        ydl.download([video_url])
+        # Retorna o caminho provável do arquivo
+        return f"{output_dir}/audio.wav"
+
+def format_timestamp(seconds: float) -> str:
+    print("""Converte segundos para formato SRT timestamp""")
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = seconds % 60
+    return f"{hours:02d}:{minutes:02d}:{secs:06.3f}".replace(".", ",")
 
 def transcribe_audio(audio_path: str) -> str:
-    """Transcreve áudio usando Whisper"""
+    print("""Transcreve áudio usando Whisper""")
     result = whisper_model.transcribe(audio_path)
     
     # Gerar arquivo SRT
@@ -90,15 +98,11 @@ def transcribe_audio(audio_path: str) -> str:
     
     return "\n".join(srt_content)
 
-def format_timestamp(seconds: float) -> str:
-    """Converte segundos para formato SRT timestamp"""
-    hours = int(seconds // 3600)
-    minutes = int((seconds % 3600) // 60)
-    seconds = seconds % 60
-    return f"{hours:02d}:{minutes:02d}:{seconds:06.3f}".replace(".", ",")
-
 def translate_srt(srt_content: str, target_lang: str = "pt") -> str:
-    """Traduz conteúdo SRT usando seu código melhorado"""
+    print("""Traduz conteúdo SRT""")
+    if not srt_content.strip():
+        return ""
+        
     blocks = re.split(r"\n\s*\n", srt_content.strip())
     translated_blocks = []
     translator = GoogleTranslator(source='auto', target=target_lang)
@@ -119,6 +123,7 @@ def translate_srt(srt_content: str, target_lang: str = "pt") -> str:
                 translated_block = f"{index}\n{timecode}\n{translated_text}"
                 translated_blocks.append(translated_block)
             except Exception as e:
+                print(f"Erro na tradução: {e}")
                 # Em caso de erro na tradução, manter texto original
                 translated_blocks.append(block)
         else:
@@ -127,69 +132,84 @@ def translate_srt(srt_content: str, target_lang: str = "pt") -> str:
     return "\n\n".join(translated_blocks)
 
 async def process_video(job_id: str, video_url: str, target_lang: str):
-    """Processa vídeo completo - função assíncrona"""
+    print("""Processa vídeo completo""")
+    temp_dir = "../temp"
+    os.makedirs(temp_dir, exist_ok=True)
     try:
-        # Criar diretório temporário
-        temp_dir = tempfile.mkdtemp()
+        # Inicializar status do job
+        print(f"Processando job {job_id} em {temp_dir}")
         
         # 1. Download do áudio
-        update_job_status(job_id, "processing", 20, "Baixando áudio do vídeo...")
-        audio_path = download_audio(str(video_url), temp_dir)
+        update_job_status(job_id, "processing", 10, "Baixando áudio do vídeo...")
+        audio_path = download_audio(video_url, temp_dir)
+        
+        # Verificar se arquivo foi criado
+        if not os.path.exists(audio_path):
+            raise Exception("Falha ao baixar áudio do vídeo")
         
         # 2. Transcrição
-        update_job_status(job_id, "processing", 50, "Transcrevendo áudio...")
+        update_job_status(job_id, "processing", 40, "Transcrevendo áudio...")
         srt_content = transcribe_audio(audio_path)
         
+        if not srt_content.strip():
+            raise Exception("Falha na transcrição do áudio")
+        
         # 3. Tradução
-        update_job_status(job_id, "processing", 80, "Traduzindo legendas...")
+        update_job_status(job_id, "processing", 70, "Traduzindo legendas...")
         translated_srt = translate_srt(srt_content, target_lang)
         
         # 4. Salvar arquivo final
-        output_file = f"{temp_dir}/legendas_traduzidas_{job_id}.srt"
+        update_job_status(job_id, "processing", 90, "Salvando arquivo...")
+        
+        # Criar pasta downloads se não existir
+        downloads_dir = "../downloads"
+        os.makedirs(downloads_dir, exist_ok=True)
+        
+        output_file = f"{downloads_dir}/legendas_{job_id}.srt"
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(translated_srt)
         
-        # 5. Mover para pasta de downloads (ou upload para S3)
-        final_path = f"downloads/legendas_{job_id}.srt"
-        os.makedirs("downloads", exist_ok=True)
-        shutil.move(output_file, final_path)
-        
         update_job_status(job_id, "completed", 100, "Processamento concluído!", f"/download/{job_id}")
-        
-        # Limpar arquivos temporários
-        shutil.rmtree(temp_dir)
+        print(f"Job {job_id} completado com sucesso!")
         
     except Exception as e:
-        update_job_status(job_id, "error", 0, f"Erro: {str(e)}")
+        error_msg = f"Erro: {str(e)}"
+        print(f"Erro no job {job_id}: {error_msg}")
+        update_job_status(job_id, "error", 0, error_msg)
+    finally:
+        # Limpar arquivos temporários
+        if temp_dir and os.path.exists(temp_dir):
+            try:
+                shutil.rmtree(temp_dir)
+            except:
+                pass
 
 @app.post("/generate-subtitles")
 async def generate_subtitles(request: VideoRequest, background_tasks: BackgroundTasks):
-    """Endpoint principal para gerar legendas"""
+    print("""Endpoint principal para gerar legendas""")
     job_id = str(uuid.uuid4())
-    
-    # Inicializar job
-    update_job_status(job_id, "pending", 0, "Iniciando processamento...")
-    
-    # Adicionar tarefa em background
+
+    # Inicia o status logo aqui
+    update_job_status(job_id, "pending", 0, "Aguardando início do processamento...")
+
+    # Adiciona a tarefa assíncrona
     background_tasks.add_task(process_video, job_id, request.video_url, request.target_lang)
-    
+
+    # Retorna imediatamente com job_id
     return {"job_id": job_id, "message": "Processamento iniciado"}
 
 @app.get("/status/{job_id}")
 async def get_job_status(job_id: str):
-    """Verifica status do job"""
-    job_data = redis_client.get(f"job:{job_id}")
-    if not job_data:
+    print("""Verifica status do job""")
+    if job_id not in job_status_storage:
         raise HTTPException(status_code=404, detail="Job não encontrado")
     
-    return json.loads(job_data)
+    return job_status_storage[job_id]
 
 @app.get("/download/{job_id}")
 async def download_subtitle(job_id: str):
-    """Download do arquivo de legenda"""
-    from fastapi.responses import FileResponse
-    
-    file_path = f"downloads/legendas_{job_id}.srt"
+    print("""Download do arquivo de legenda""")
+    file_path = f"../downloads/legendas_{job_id}.srt"
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Arquivo não encontrado")
     
@@ -199,6 +219,11 @@ async def download_subtitle(job_id: str):
         filename=f"legendas_{job_id}.srt"
     )
 
+@app.get("/")
+async def root():
+    return {"message": "Subtitle Generator API está funcionando!"}
+
 if __name__ == "__main__":
     import uvicorn
+    print("Iniciando servidor...")
     uvicorn.run(app, host="0.0.0.0", port=8000)

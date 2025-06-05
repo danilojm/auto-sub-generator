@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gerador de Legendas</title>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="header text-center mb-4">
+            <h1 data-testid="main-title">🎬 Gerador de Legendas</h1>
+            <p class="text-muted">Converta vídeos em legendas traduzidas automaticamente</p>
+        </div>
+
+        <form id="subtitleForm" class="needs-validation" novalidate>
+            <div class="form-group mb-3">
+                <label for="videoUrl">URL do Vídeo (YouTube, etc.)</label>
+                <input data-testid="input-url" type="url" id="videoUrl" class="form-control"
+                    placeholder="https://www.youtube.com/watch?v=..." required>
+            </div>
+
+            <div class="lang-container d-flex gap-3 mb-3">
+                <div class="form-group w-50">
+                    <label for="sourceLang">Idioma Original</label>
+                    <select id="sourceLang" class="form-select" data-testid="source-lang">
+                        <option value="auto">Detectar Automaticamente</option>
+                        <option value="en">Inglês</option>
+                        <option value="es">Espanhol</option>
+                        <option value="fr">Francês</option>
+                        <option value="de">Alemão</option>
+                    </select>
+                </div>
+
+                <div class="form-group w-50">
+                    <label for="targetLang">Traduzir Para</label>
+                    <select id="targetLang" class="form-select" data-testid="target-lang">
+                        <option value="pt">Português</option>
+                        <option value="en">Inglês</option>
+                        <option value="es">Espanhol</option>
+                        <option value="fr">Francês</option>
+                        <option value="de">Alemão</option>
+                    </select>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-generate" id="generateBtn" data-testid="generate-button">
+                <span class="spinner-border spinner-border-sm me-2 d-none" role="status" id="loadingSpinner"
+                    aria-hidden="true"></span>
+                🚀 Gerar Legendas
+            </button>
+        </form>
+
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="status-message" id="statusMessage">Iniciando processamento...</div>
+        </div>
+
+        <div class="download-container" id="downloadContainer">
+            <div class="success-icon">✅</div>
+            <h3>Legendas prontas!</h3>
+            <p>Seu arquivo de legendas foi gerado com sucesso.</p>
+            <a href="#" class="btn-download" id="downloadBtn" data-testid="download-button">📥 Baixar Legendas</a>
+        </div>
+
+        <div class="error-message" id="errorMessage" data-testid="error-message"></div>
+    </div>
+
+    <script>
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const API_BASE = 'http://127.0.0.1:8000';
+            let currentJobId = null;
+            let statusInterval = null;
+            let isProcessing = false;
+
+            const form = document.getElementById('subtitleForm');
+            const generateBtn = document.getElementById('generateBtn');
+            const progressContainer = document.getElementById('progressContainer');
+            const downloadContainer = document.getElementById('downloadContainer');
+            const errorMessage = document.getElementById('errorMessage');
+            const progressFill = document.getElementById('progressFill');
+            const statusMessage = document.getElementById('statusMessage');
+            const downloadBtn = document.getElementById('downloadBtn');
+
+            console.log("DOM Carregado, adicionando ouvintes de eventos...");
+
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if (isProcessing) return;
+                
+                isProcessing = true;
+                
+                console.log("Formulário enviado, sem recarregar!");
+
+                const videoUrl = document.getElementById('videoUrl').value;
+                const sourceLang = document.getElementById('sourceLang').value;
+                const targetLang = document.getElementById('targetLang').value;
+
+                resetUI();
+                setButtonState(true, 'Processando...');
+
+                try {
+                    const jobId = await sendSubtitleRequest(videoUrl, sourceLang, targetLang);
+                    if (!jobId) throw new Error('Job ID inválido');
+
+                    currentJobId = jobId;
+                    showElement(progressContainer);
+                    startPolling(jobId);
+                } catch (err) {
+                    displayError('Erro ao processar vídeo: ' + err.message);
+                    setButtonState(false, '🚀 Gerar Legendas');
+                }
+            });
+
+            // Funções
+
+            async function sendSubtitleRequest(videoUrl, sourceLang, targetLang) {
+                const response = await fetch(`${API_BASE}/generate-subtitles`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ video_url: videoUrl, source_lang: sourceLang, target_lang: targetLang })
+                });
+
+                if (!response.ok) throw new Error('Falha na requisição');
+                const data = await response.json();
+                console.log('Job ID recebido:', data.job_id);
+                return data.job_id;
+            }
+
+            function startPolling(jobId) {
+                statusInterval = setInterval(async () => {
+                    try {
+                        const response = await fetch(`${API_BASE}/status/${jobId}`);
+                        const status = await response.json();
+                        console.log('Status recebido:', status);
+
+                        updateProgress(status.progress, status.message);
+
+                        if (status.status === 'completed') {
+                            stopPolling();
+                            showDownload(status.download_url);
+                            setButtonState(false, '🚀 Gerar Legendas');
+                        } else if (status.status === 'error') {
+                            stopPolling();
+                            displayError(status.message);
+                            setButtonState(false, '🚀 Gerar Legendas');
+                        }
+                    } catch {
+                        stopPolling();
+                        displayError('Erro ao verificar status');
+                        setButtonState(false, '🚀 Gerar Legendas');
+                    }
+                }, 2000);
+            }
+
+            function stopPolling() {
+                clearInterval(statusInterval);
+                statusInterval = null;
+            }
+
+            function updateProgress(percent, msg) {
+                progressFill.style.width = percent + '%';
+                statusMessage.textContent = msg;
+            }
+
+            function showDownload(downloadUrl) {
+                hideElement(progressContainer);
+                showElement(downloadContainer);
+                downloadBtn.href = `${API_BASE}${downloadUrl}`;
+            }
+
+            function displayError(message) {
+                errorMessage.textContent = message;
+                showElement(errorMessage);
+            }
+
+            function resetUI() {
+                hideElement(progressContainer);
+                hideElement(downloadContainer);
+                hideElement(errorMessage);
+            }
+
+            function setButtonState(disabled, text) {
+                generateBtn.disabled = disabled;
+                generateBtn.textContent = text;
+            }
+
+            function showElement(el) {
+                el.style.display = 'block';
+            }
+
+            function hideElement(el) {
+                el.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+
+</html>

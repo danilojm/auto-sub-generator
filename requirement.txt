@@ -1,7 +1,17 @@
+# Processamento de Vídeo e Legendas
+torch==2.7.1
+torchaudio==2.7.1
+torchvision==0.22.1
+openai-whisper==20231117
+yt-dlp==2025.03.31
+pillow==11.0.0
+
+# FastAPI e dependências do backend
 fastapi==0.104.1
-uvicorn==0.24.0
-whisper==1.1.10
-yt-dlp==2023.11.16
-deep-translator==1.11.4
-redis==5.0.1
+uvicorn[standard]==0.24.0
 python-multipart==0.0.6
+pydantic==2.5.0
+setuptools==70.2.0
+
+# Tradução
+deep-translator==1.11.4
