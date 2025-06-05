@@ -1,0 +1,2 @@
+# auto-sub-generator
+SubMagic
