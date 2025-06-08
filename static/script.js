@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const API_BASE = 'http://127.0.0.1:8000';
+    const API_BASE = 'http://localhost:8000';
     let currentJobId = null;
     let statusInterval = null;
 
@@ -51,35 +51,44 @@ document.addEventListener('DOMContentLoaded', () => {
         return data.job_id;
     }
 
-    function startPolling(jobId) {
-        statusInterval = setInterval(async () => {
+    async function startPolling(jobId) {
+        console.log(`🚀 Iniciando polling para job: ${jobId}`);
+        pollingActive = true;
+        pollingAttempts = 0;
+
+        while (pollingActive) {
             try {
+                console.log(`🔄 Verificando status do job: ${jobId} (tentativa #${++pollingAttempts})`);
+
                 const response = await fetch(`${API_BASE}/status/${jobId}`);
                 const status = await response.json();
-                console.log('Status recebido:', status);
+                console.log('✅ Status recebido:', status);
 
                 updateProgress(status.progress, status.message);
 
                 if (status.status === 'completed') {
-                    stopPolling();
+                    pollingActive = false;
                     showDownload(status.download_url);
                     setButtonState(false, '🚀 Gerar Legendas');
-                } else if (status.status === 'error') {
-                    stopPolling();
-                    displayError(status.message);
-                    setButtonState(false, '🚀 Gerar Legendas');
+                    break; // garante que sai do loop
                 }
-            } catch {
+
+            } catch (error) {
+                console.error("❌ Erro durante polling:", error);
                 stopPolling();
-                displayError('Erro ao verificar status');
-                setButtonState(false, '🚀 Gerar Legendas');
+                break;
             }
-        }, 2000);
+
+            // Espera 500ms antes de fazer a próxima requisição
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
     }
 
+
     function stopPolling() {
-        clearInterval(statusInterval);
+        
         statusInterval = null;
+        clearInterval(statusInterval);
     }
 
     function updateProgress(percent, msg) {

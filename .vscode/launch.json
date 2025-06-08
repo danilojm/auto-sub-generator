@@ -1,0 +1,54 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "FastAPI Server",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "backend.main:app",
+                "--reload",
+                "--host", "127.0.0.1",
+                "--port", "8000"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "jinja": true
+        },
+        {
+            "name": "Debug JavaScript (Chrome)",
+            "type": "chrome",
+            "request": "launch",
+            "runtimeExecutable": "google-chrome",
+            "url": "http://127.0.0.1:8000/static",
+            "webRoot": "${workspaceFolder}/static",
+            "sourceMaps": true,
+            "userDataDir": "${workspaceFolder}/.vscode/chrome-debug-user-data",
+            "runtimeArgs": [
+                "--disable-web-security",
+                "--allow-running-insecure-content"
+            ]
+        },
+        {
+            "name": "Debug JavaScript (Edge)",
+            "type": "msedge",
+            "runtimeExecutable": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+            "request": "launch",
+            "url": "http://127.0.0.1:5500/frontend/index.html",
+            "webRoot": "${workspaceFolder}/static"
+        },
+    ],
+    "compounds": [
+        {
+            "name": "Python + JavaScript (Compound)",
+            "configurations": [
+                "FastAPI Server",
+                "Debug JavaScript (Chrome)"
+            ]
+        }
+    ]
+}
