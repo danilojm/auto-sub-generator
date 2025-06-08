@@ -4,74 +4,100 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Gerador de Legendas</title>
+    <title>Subtitle Generator</title>
 
-    <!-- Custom CSS -->
+    <!-- Custom CSS stylesheet for styling the page -->
     <link rel="stylesheet" href="/static/style.css">
 </head>
 
 <body>
+    <!-- Main container for the entire page content -->
     <div class="container">
+
+        <!-- Header section: title and description -->
         <div class="header text-center mb-4">
-            <h1 data-testid="main-title">🎬 Gerador de Legendas</h1>
-            <p class="text-muted">Converta vídeos em legendas traduzidas automaticamente</p>
+            <h1 data-testid="main-title">🎬 Subtitle Generator</h1>
+            <p class="text-muted">Automatically convert videos into translated subtitles</p>
         </div>
 
+        <!-- Form to submit video URL and select languages for subtitle generation -->
         <form id="subtitleForm" class="needs-validation" novalidate>
+            
+            <!-- Input field for video URL (YouTube or other platforms) -->
             <div class="form-group mb-3">
-                <label for="videoUrl">URL do Vídeo (YouTube, etc.)</label>
-                <input data-testid="input-url" type="url" id="videoUrl" class="form-control"
-                    placeholder="https://www.youtube.com/watch?v=..." required>
+                <label for="videoUrl">Video URL (YouTube, etc.)</label>
+                <input 
+                    data-testid="input-url" 
+                    type="url" 
+                    id="videoUrl" 
+                    class="form-control"
+                    placeholder="https://www.youtube.com/watch?v=..." 
+                    required
+                >
             </div>
 
+            <!-- Language selection: source language and target translation language -->
             <div class="lang-container d-flex gap-3 mb-3">
+                
+                <!-- Source language dropdown -->
                 <div class="form-group w-50">
-                    <label for="sourceLang">Idioma Original</label>
+                    <label for="sourceLang">Original Language</label>
                     <select id="sourceLang" class="form-select" data-testid="source-lang">
-                        <option value="auto">Detectar Automaticamente</option>
-                        <option value="en">Inglês</option>
-                        <option value="es">Espanhol</option>
-                        <option value="fr">Francês</option>
-                        <option value="de">Alemão</option>
+                        <option value="auto">Detect Automatically</option>
+                        <option value="en">English</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                        <option value="de">German</option>
                     </select>
                 </div>
 
+                <!-- Target language dropdown -->
                 <div class="form-group w-50">
-                    <label for="targetLang">Traduzir Para</label>
+                    <label for="targetLang">Translate To</label>
                     <select id="targetLang" class="form-select" data-testid="target-lang">
-                        <option value="pt">Português</option>
-                        <option value="en">Inglês</option>
-                        <option value="es">Espanhol</option>
-                        <option value="fr">Francês</option>
-                        <option value="de">Alemão</option>
+                        <option value="pt">Portuguese</option>
+                        <option value="en">English</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                        <option value="de">German</option>
                     </select>
                 </div>
             </div>
 
+            <!-- Submit button to generate subtitles -->
             <button type="submit" class="btn-generate" id="generateBtn" data-testid="generate-button">
-                <span class="spinner-border spinner-border-sm me-2 d-none" role="status" id="loadingSpinner"
-                    aria-hidden="true"></span>
-                🚀 Gerar Legendas
+                <!-- Spinner shown when processing, hidden by default -->
+                <span 
+                    class="spinner-border spinner-border-sm me-2 d-none" 
+                    role="status" 
+                    id="loadingSpinner"
+                    aria-hidden="true"
+                ></span>
+                🚀 Generate Subtitles
             </button>
         </form>
 
+        <!-- Progress bar container displayed during subtitle generation -->
         <div class="progress-container" id="progressContainer">
             <div class="progress-bar">
-                <div class="progress-fill" id="progressFill"></div>
+                <div class="progress-fill" id="progressFill"></div> <!-- Visual progress indicator -->
             </div>
-            <div class="status-message" id="statusMessage">Iniciando processamento...</div>
+            <div class="status-message" id="statusMessage">Starting processing...</div> <!-- Status text -->
         </div>
 
+        <!-- Download section displayed when subtitles are ready -->
         <div class="download-container" id="downloadContainer">
-            <div class="success-icon" role="img" aria-label="Success">✅</div>
-            <h3>Legendas prontas!</h3>
-            <p>Seu arquivo de legendas foi gerado com sucesso.</p>
-            <a href="#" class="btn-download" id="downloadBtn" data-testid="download-button">📥 Baixar Legendas</a>
+            <div class="success-icon" role="img" aria-label="Success">✅</div> <!-- Success icon -->
+            <h3>Subtitles Ready!</h3>
+            <p>Your subtitle file has been successfully generated.</p>
+            <a href="#" class="btn-download" id="downloadBtn" data-testid="download-button">📥 Download Subtitles</a>
         </div>
 
+        <!-- Error message container, shown when an error occurs -->
         <div class="error-message" id="errorMessage" data-testid="error-message"></div>
     </div>
 
+    <!-- Main JavaScript file controlling the interactive functionality -->
     <script src="/static/script.js"></script>
 </body>
 

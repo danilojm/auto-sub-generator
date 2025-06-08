@@ -1,3 +1,4 @@
+
 # 🎬 Automatic Subtitle Generator with Translation
 
 This project is a **FastAPI-based API** that extracts audio from a YouTube video, transcribes the content using **Whisper**, translates the subtitles using **Google Translate**, and generates a downloadable `.srt` file. A simple frontend interface allows users to submit a video link and download the generated subtitles in just a few minutes.
@@ -14,6 +15,31 @@ This project is a **FastAPI-based API** that extracts audio from a YouTube video
 - **Deep Translator (Google Translate)**
 - **HTML, JavaScript (frontend)**
 - **VS Code + Live Server (dev)**
+
+---
+
+## ⚙️ Requirements & Dependencies
+
+### Python Packages for Video Processing and Subtitles
+
+- `torch==2.7.1`
+- `torchaudio==2.7.1`
+- `torchvision==0.22.1`
+- `openai-whisper==20231117`
+- `yt-dlp==2025.03.31`
+- `pillow==11.0.0`
+
+### Backend (FastAPI and related)
+
+- `fastapi==0.104.1`
+- `uvicorn[standard]==0.24.0`
+- `python-multipart==0.0.6`
+- `pydantic==2.5.0`
+- `setuptools==70.2.0`
+
+### Translation
+
+- `deep-translator==1.11.4`
 
 ---
 
@@ -59,22 +85,22 @@ Otherwise, it will fall back to CPU using FP32.
 subtitle-generator/
 │
 ├── backend/
-│   └── main.py          # Main FastAPI code
+│   └── main.py          # Main FastAPI backend code
 │
 ├── frontend/
-│   └── index.html       # Simple interface to use the API
+│   └── index.html       # Frontend interface to use the API
 │
 ├── static/
-│   ├── styles.css       # CSS stylesheet
-│   └── script.js        # JavavaScript code
+│   ├── style.css        # CSS stylesheet
+│   └── script.js        # JavaScript frontend code
 │
-├── downloads/           # Generated subtitles
+├── downloads/           # Generated subtitle files (.srt)
 │
-├── temp/                # Temporary audio files
+├── temp/                # Temporary audio and processing files
 │
 ├── requirements.txt     # Python dependencies
 │
-└── README.md
+└── README.md            # This file
 ```
 
 ---
@@ -93,24 +119,26 @@ API will be available at:
 ### Frontend (Live Server or manual)
 
 1. Open `frontend/index.html` using Live Server (VS Code)  
-   or
+   or  
 2. Navigate manually to `http://localhost:5500/frontend/index.html`
 
 ---
 
 ## ✨ Features
 
-- ✅ Supports multiple jobs running in the background
-- ✅ Automatic transcription using **Whisper**
-- ✅ Translation using **GoogleTranslator**
-- ✅ Real-time progress bar (frontend)
-- ✅ Direct download of translated `.srt` file
+- ✅ Supports multiple jobs running concurrently in the background  
+- ✅ Automatic transcription using **Whisper**  
+- ✅ Subtitle translation via **Google Translator**  
+- ✅ Real-time progress bar in frontend  
+- ✅ Direct download link for translated `.srt` files  
 
 ---
 
-## 🧪 API Testing
+## 🧪 API Endpoints
 
 ### POST `/generate-subtitles`
+
+**Request body:**
 
 ```json
 {
@@ -120,7 +148,7 @@ API will be available at:
 }
 ```
 
-Response:
+**Response:**
 
 ```json
 {
@@ -131,7 +159,7 @@ Response:
 
 ### GET `/status/{job_id}`
 
-Returns job progress:
+Returns job progress and status:
 
 ```json
 {
@@ -145,44 +173,35 @@ Returns job progress:
 
 ### GET `/download/{job_id}`
 
-Downloads the `.srt` file.
-
----
-
-## ⚙️ Requirements
-
-- Python 3.10 or higher
-- ffmpeg installed
-- Git
-- GPU with CUDA support (optional)
+Downloads the generated `.srt` subtitle file.
 
 ---
 
 ## 📌 Notes
 
-- Whisper model `base` is used by default. You may switch to `"small"`, `"medium"` or `"large"`:
+- Whisper model `base` is used by default. You may switch to `"small"`, `"medium"`, or `"large"` depending on your hardware and accuracy needs:
 
 ```python
 whisper_model = whisper.load_model("base")
 ```
 
 - The `temp/` directory is automatically cleaned after each job.
-- CORS is fully open (`allow_origins=["*"]`) for development purposes only.
+- CORS is fully open (`allow_origins=["*"]`) for development only; restrict in production.
 
 ---
 
 ## 💡 Future Improvements
 
-- 📤 Support for uploading local files
-- 🌐 Multiple translation options
-- 🔒 User authentication and IP quota
-- 📁 Direct file upload support
+- 📤 Support for local video file uploads  
+- 🌐 Multiple translation engines/options  
+- 🔒 User authentication and IP quota management  
+- 📁 File upload support via frontend  
 
 ---
 
 ## 🤝 Contributing
 
-Feel free to open issues and pull requests. Suggestions are always welcome!
+Feel free to open issues and pull requests. Suggestions and feedback are welcome!
 
 ---
 
