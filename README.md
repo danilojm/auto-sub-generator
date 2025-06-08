@@ -59,16 +59,21 @@ Otherwise, it will fall back to CPU using FP32.
 subtitle-generator/
 │
 ├── backend/
-│   ├── main.py              # Main FastAPI code
-│   ├── downloads/           # Generated subtitles
-│   └── temp/                # Temporary audio files
+│   └── main.py          # Main FastAPI code
 │
 ├── frontend/
-│   └── index.html           # Simple interface to use the API
+│   └── index.html       # Simple interface to use the API
 │
-├── static/                  # Static files if needed
+├── static/
+│   ├── styles.css       # CSS stylesheet
+│   └── script.js        # JavavaScript code
 │
-├── requirements.txt         # Python dependencies
+├── downloads/           # Generated subtitles
+│
+├── temp/                # Temporary audio files
+│
+├── requirements.txt     # Python dependencies
+│
 └── README.md
 ```
 
