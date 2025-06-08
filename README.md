@@ -197,4 +197,4 @@ This project is licensed under the [MIT License](LICENSE).
 Danilo Mendes de Oliveira  
 📧 d.mendes0924@gmail.com  
 📍 Toronto, Canada  
-🔗 [LinkedIn](https://linkedin.com/in/your-profile)
+🔗 [LinkedIn](https://www.linkedin.com/in/danilo-mendes-de-oliveira/?locale=en_US)
